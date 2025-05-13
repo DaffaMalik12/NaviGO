@@ -5,7 +5,7 @@ import BuildingInfo from './UI/BuildingInfo';
 import useGeolocation from '../../hooks/useGeolocation';
 import { geocodeAddress } from '../../service/GeocodeService';
 import RouteNotification from './UI/RouteNotification';
-import { getAlternativeRoutes } from '../../service/RouteService'; // sesuaikan path-nya
+import { getAlternativeRoutes } from '../../service/RouteService';
 import { UIN_COORDS } from '../../utils/mapUtils';
 
 export default function CampusMap() {
@@ -58,10 +58,13 @@ export default function CampusMap() {
     setShowHistory(false);
   };
 
+  
+
   // Handle reset
   const handleReset = () => {
     setUserLocation(null);
     setStartPoint('');
+    setAlternativeRoutes([]); // Clear alternative routes
     stopLocationWatch();
     if (mapRef.current) {
       mapRef.current.setView(UIN_COORDS, 15);
@@ -87,7 +90,7 @@ export default function CampusMap() {
   // Handle building selection
   const handleBuildingSelect = (building) => {
     setSelectedBuilding(building);
-    setShowRouteNotification(true)
+    setShowRouteNotification(true);
     if (mapRef.current) {
       mapRef.current.setView(building.position, 18);
     }
@@ -96,7 +99,32 @@ export default function CampusMap() {
     }
   };
 
-  
+  // Handle showing alternative routes
+  const handleShowAlternativeRoutes = async (building) => {
+    if (!userLocation) {
+      alert('Tentukan lokasi Anda terlebih dahulu.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const routes = await getAlternativeRoutes(userLocation, building.position);
+      
+      if (routes && routes.length > 0) {
+        setAlternativeRoutes(routes);
+        console.log("Alternative routes loaded:", routes);
+      } else {
+        alert('Tidak dapat menemukan rute alternatif.');
+      }
+    } catch (error) {
+      console.error('Error fetching alternative routes:', error);
+      alert('Gagal memuat rute alternatif. Silakan coba lagi.');
+    }
+
+    setIsLoading(false);
+    setShowRouteNotification(false);
+  };
 
   return (
     <div className="relative h-screen w-full bg-gray-50">
@@ -107,6 +135,7 @@ export default function CampusMap() {
         selectedBuilding={selectedBuilding}
         searchTerm={searchTerm}
         selectedFilter={selectedFilter}
+        alternativeRoutes={alternativeRoutes} // Pass alternative routes to MapContainer
       />
       
       {/* Control Panel */}
@@ -147,25 +176,11 @@ export default function CampusMap() {
       {/* Rute Alternatif Notification */}
       {showRouteNotification && selectedBuilding && (
         <RouteNotification 
-        building={selectedBuilding}
-        onShowRoute={async (building) => {
-          if (!userLocation) {
-            alert('Tentukan lokasi Anda terlebih dahulu.');
-            return;
-          }
-      
-          setIsLoading(true);
-      
-          const routes = await getAlternativeRoutes(userLocation, building.position);
-      
-          setAlternativeRoutes(routes); // simpan rute untuk dikirim ke MapContainer
-          setIsLoading(false);
-          setShowRouteNotification(false);
-        }}
-        onClose={() => setShowRouteNotification(false)}
-      />      
+          building={selectedBuilding}
+          onShowRoute={handleShowAlternativeRoutes}
+          onClose={() => setShowRouteNotification(false)}
+        />
       )}
-
     </div>
   );
 }
