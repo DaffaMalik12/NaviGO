@@ -1,5 +1,5 @@
 /**
- * Mendapatkan rute alternatif menggunakan OSRM API dengan error handling yang lebih baik
+ * Mendapatkan rute alternatif menggunakan OpenRouteService API dengan error handling yang baik
  * @param {Array} startCoords - Koordinat awal [lat, lng]
  * @param {Array} endCoords - Koordinat tujuan [lat, lng]
  * @param {Object} options - Opsi tambahan
@@ -8,15 +8,23 @@
 export async function getAlternativeRoutes(startCoords, endCoords, options = {}) {
   // Default options
   const defaultOptions = {
-    serviceUrl: 'https://router.project-osrm.org',
-    profile: 'driving',
+    serviceUrl: 'https://api.openrouteservice.org',
+    apiKey: '5b3ce3597851110001cf6248221bd2524f854e9a8aca093e655e40eb', // API key ORS diperlukan
+    profile: 'driving-car', // ORS menggunakan format nama profil yang berbeda
     maxRetries: 3,
     retryDelay: 1000,
-    timeout: 5000
+    timeout: 10000,
+    alternatives: 3 // Jumlah alternatif yang diinginkan
   };
   
   // Gabungkan default options dengan options yang diberikan
   const config = { ...defaultOptions, ...options };
+  
+  // Validasi API key
+  if (!config.apiKey) {
+    console.error('API key OpenRouteService diperlukan');
+    return [];
+  }
   
   // Pengecekan input koordinat
   if (!startCoords || !endCoords || 
@@ -26,21 +34,39 @@ export async function getAlternativeRoutes(startCoords, endCoords, options = {})
     return [];
   }
   
-  // OSRM mengharapkan koordinat dalam format [lng, lat], bukan [lat, lng]
-  const startLngLat = `${startCoords[1]},${startCoords[0]}`;
-  const endLngLat = `${endCoords[1]},${endCoords[0]}`;
+  // ORS API mengharapkan koordinat dalam format [lng, lat], bukan [lat, lng]
+  const startLngLat = [startCoords[1], startCoords[0]];
+  const endLngLat = [endCoords[1], endCoords[0]];
+  
+  console.log('Koordinat awal (lng,lat):', startLngLat);
+  console.log('Koordinat tujuan (lng,lat):', endLngLat);
   
   // Fungsi untuk melakukan request dengan retry
-  const fetchWithRetry = async (url, retries = config.maxRetries) => {
+  const fetchWithRetry = async (url, payload, retries = config.maxRetries) => {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), config.timeout);
       
-      const response = await fetch(url, { signal: controller.signal });
+      console.log(`Mencoba request ke ${url}`);
+      console.log(`Headers: Authorization: Bearer ${config.apiKey.substring(0, 5)}...`);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json, application/geo+json, application/gpx+xml, img/png; charset=utf-8',
+          'Authorization': `${config.apiKey}` // OpenRouteService mungkin tidak memerlukan "Bearer"
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`OSRM API error: ${response.status}`);
+        const errorText = await response.text();
+        console.error(`OpenRouteService API error: ${response.status} - ${errorText}`);
+        throw new Error(`OpenRouteService API error: ${response.status}`);
       }
       
       return await response.json();
@@ -48,39 +74,61 @@ export async function getAlternativeRoutes(startCoords, endCoords, options = {})
       if (retries > 0) {
         console.warn(`Mencoba ulang request (${config.maxRetries - retries + 1}/${config.maxRetries})...`);
         await new Promise(resolve => setTimeout(resolve, config.retryDelay));
-        return fetchWithRetry(url, retries - 1);
+        return fetchWithRetry(url, payload, retries - 1);
       }
       throw error;
     }
   };
   
   try {
-    // Buat URL API OSRM
-    const url = `${config.serviceUrl}/route/v1/${config.profile}/${startLngLat};${endLngLat}?alternatives=true&overview=full&geometries=geojson`;
+    // URL endpoint untuk directions API di OpenRouteService
+    const url = `${config.serviceUrl}/v2/directions/${config.profile}/geojson`;
     
-    // Log URL untuk debugging
-    console.log('OSRM Request URL:', url);
+    // Payload untuk OpenRouteService API
+    const payload = {
+      coordinates: [startLngLat, endLngLat],
+      alternative_routes: {
+        target_count: config.alternatives,
+        weight_factor: 1.4, // Kontrol seberapa berbeda rute alternatif (1.0-2.0)
+        share_factor: 0.6 // Kontrol seberapa banyak rute yang dibagi (0.0-1.0)
+      },
+      instructions: false,
+      language: 'id',
+      units: 'km'
+    };
+    
+    // Log request untuk debugging
+    console.log('OpenRouteService Request URL:', url);
+    console.log('Request payload:', JSON.stringify(payload));
     
     // Lakukan request dengan retry mechanism
-    const data = await fetchWithRetry(url);
+    const data = await fetchWithRetry(url, payload);
     
-    if (!data.routes || data.routes.length === 0) {
+    // Log respons untuk debugging
+    console.log('API Response:', JSON.stringify(data).substring(0, 200) + '...');
+    
+    if (!data.features || data.features.length === 0) {
       console.warn('Tidak ada rute yang ditemukan');
       return [];
     }
     
-    // Ubah format respons OSRM ke format yang diharapkan
-    const routes = data.routes.map((route, index) => {
-      // OSRM mengembalikan koordinat dalam GeoJSON format (jika geometries=geojson)
+    // Ubah format respons OpenRouteService ke format yang diharapkan
+    const routes = data.features.map((route, index) => {
+      // ORS mengembalikan koordinat dalam GeoJSON format
       // Konversi dari format [lng, lat] ke [lat, lng]
       const points = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
+      
+      // Ekstrak properti rute dari OpenRouteService
+      const properties = route.properties.summary;
+      const distance = properties.distance * 1000; // ORS mengembalikan dalam km, konversi ke meter
+      const duration = properties.duration; // ORS mengembalikan dalam detik
       
       return {
         id: index + 1,
         points: points,
-        description: `Rute ${index + 1} (${(route.distance / 1000).toFixed(1)} km, ${Math.round(route.duration / 60)} menit)`,
-        distance: route.distance,
-        duration: route.duration
+        description: `Rute ${index + 1} (${(distance / 1000).toFixed(1)} km, ${Math.round(duration / 60)} menit)`,
+        distance: distance,
+        duration: duration
       };
     });
     
