@@ -12,6 +12,7 @@ import Routing from "./Routing";
 import { UIN_COORDS } from "../../../utils/mapUtils";
 import { getBuildingIcons } from "../Icons/MarkerIcons";
 import { campusBuildings } from "../../../data/buildingsData";
+import GuestClickableMarker from "../UI/GuestClickableMarker"; // Import komponen baru
 
 // Component to render alternative routes with directions
 const AlternativeRoutes = ({ routes, userLocation, selectedRoute }) => {
@@ -104,6 +105,11 @@ const MapContainer = forwardRef(
             searchTerm,
             selectedFilter,
             alternativeRoutes = [],
+            // Tambahan props untuk guest
+            isGuest = false,
+            guestMarkers = [],
+            setGuestMarkers,
+            onGuestMarkerClick,
         },
         ref
     ) => {
@@ -142,6 +148,13 @@ const MapContainer = forwardRef(
         const handleRouteSelect = (index) => {
             setSelectedRouteIndex(index === selectedRouteIndex ? null : index);
         };
+
+        // Handle guest routes (khusus untuk lokasi yang dipilih guest)
+        const showGuestRouting =
+            isGuest &&
+            userLocation &&
+            guestMarkers.length > 0 &&
+            alternativeRoutes.length === 0;
 
         return (
             <LeafletMapContainer
@@ -195,6 +208,15 @@ const MapContainer = forwardRef(
                     </Marker>
                 )}
 
+                {/* Tambahan: Guest Clickable Marker - Hanya tampil jika user adalah guest */}
+                {isGuest && (
+                    <GuestClickableMarker
+                        guestMarkers={guestMarkers}
+                        setGuestMarkers={setGuestMarkers}
+                        onMarkerClick={onGuestMarkerClick}
+                    />
+                )}
+
                 {/* Normal Routing - only show if we don't have alternative routes */}
                 {showNormalRouting && (
                     <Routing
@@ -210,6 +232,16 @@ const MapContainer = forwardRef(
                     <Routing
                         start={userLocation}
                         end={UIN_COORDS}
+                        buildingIcons={buildingIcons}
+                        showDirections={true}
+                    />
+                )}
+
+                {/* Guest routing to clicked marker */}
+                {showGuestRouting && guestMarkers.length > 0 && (
+                    <Routing
+                        start={userLocation}
+                        end={guestMarkers[0].position}
                         buildingIcons={buildingIcons}
                         showDirections={true}
                     />
@@ -300,6 +332,28 @@ const MapContainer = forwardRef(
                         </div>
                     </div>
                 )}
+
+                {/* Instruksi untuk guest */}
+                {isGuest &&
+                    guestMarkers.length === 0 &&
+                    !showAlternativeRoutes && (
+                        <div
+                            className="leaflet-top leaflet-center"
+                            style={{
+                                pointerEvents: "auto",
+                                zIndex: 1000,
+                                top: "20px",
+                                right: "50%",
+                            }}
+                        >
+                            <div className="leaflet-control leaflet-bar bg-white p-3 rounded-lg shadow-md text-center transform -translate-x-1/2">
+                                <p className="text-gray-700 font-medium">
+                                    Klik di mana saja pada peta untuk melihat
+                                    rute
+                                </p>
+                            </div>
+                        </div>
+                    )}
             </LeafletMapContainer>
         );
     }
