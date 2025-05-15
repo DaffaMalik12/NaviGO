@@ -1,3 +1,4 @@
+// Modifikasi pada CampusMap.jsx
 import { useState, useEffect, useRef } from "react";
 import MapContainer from "./Map/MapContainer";
 import ControlPanel from "./UI/ControlPanel";
@@ -9,6 +10,7 @@ import { getAlternativeRoutes } from "../../service/RouteService";
 import NavbarTransparen from "../Components/UI/NavbarTransparen";
 import { UIN_COORDS } from "../../utils/mapUtils";
 import LogoutNavbar from "./UI/LogoutNavbar";
+import GuestRouteInfo from "./UI/GuestRuteInfo"; // Kompoen baru yang akan kita buat
 
 export default function CampusMap({ auth }) {
     const [startPoint, setStartPoint] = useState("");
@@ -24,6 +26,11 @@ export default function CampusMap({ auth }) {
     const [selectedFilter, setSelectedFilter] = useState("all");
     const [showRouteNotification, setShowRouteNotification] = useState(false);
     const mapRef = useRef(null);
+
+    // State baru untuk marker klikan guest
+    const [guestMarkers, setGuestMarkers] = useState([]);
+    const [showGuestRouteInfo, setShowGuestRouteInfo] = useState(false);
+    const [selectedGuestMarker, setSelectedGuestMarker] = useState(null);
 
     // Hook for geolocation
     const { watchId, toggleLiveLocation, stopLocationWatch } = useGeolocation(
@@ -60,10 +67,54 @@ export default function CampusMap({ auth }) {
         setShowHistory(false);
     };
 
+    // Handler untuk menangani klik marker oleh guest
+    const handleGuestMarkerClick = (marker) => {
+        setSelectedGuestMarker(marker);
+        setShowGuestRouteInfo(true);
+
+        // Mengatur posisi peta untuk fokus pada marker
+        if (mapRef.current) {
+            mapRef.current.setView(marker.position, 18);
+        }
+    };
+
+    // Handler untuk menampilkan rute ke marker pilihan guest
+    const handleShowGuestRoute = async () => {
+        if (!selectedGuestMarker) return;
+
+        setIsLoading(true);
+
+        // Default user location ke tengah kampus jika belum ada
+        if (!userLocation) {
+            setUserLocation(UIN_COORDS);
+        }
+
+        try {
+            const routes = await getAlternativeRoutes(
+                userLocation || UIN_COORDS,
+                selectedGuestMarker.position
+            );
+
+            if (routes && routes.length > 0) {
+                setAlternativeRoutes(routes);
+            } else {
+                alert("Tidak dapat menemukan rute ke lokasi yang dipilih.");
+            }
+        } catch (error) {
+            console.error("Error fetching routes:", error);
+            alert("Gagal memuat rute. Silakan coba lagi.");
+        }
+
+        setIsLoading(false);
+        setShowGuestRouteInfo(false);
+    };
+
     const handleReset = () => {
         setUserLocation(null);
         setStartPoint("");
         setAlternativeRoutes([]);
+        setGuestMarkers([]);
+        setSelectedGuestMarker(null);
         stopLocationWatch();
         if (mapRef.current) {
             mapRef.current.setView(UIN_COORDS, 15);
@@ -133,6 +184,11 @@ export default function CampusMap({ auth }) {
                 searchTerm={searchTerm}
                 selectedFilter={selectedFilter}
                 alternativeRoutes={alternativeRoutes}
+                // Tambahan untuk guest marker
+                isGuest={!auth?.user}
+                guestMarkers={guestMarkers}
+                setGuestMarkers={setGuestMarkers}
+                onGuestMarkerClick={handleGuestMarkerClick}
             />
 
             {/* ✅ Tampilkan Control Panel hanya jika SUDAH LOGIN */}
@@ -181,10 +237,43 @@ export default function CampusMap({ auth }) {
                 />
             )}
 
-            {auth.user && <LogoutNavbar />}
+            {/* 🆕 Info rute untuk guest ketika marker diklik */}
+            {!auth?.user && showGuestRouteInfo && selectedGuestMarker && (
+                <GuestRouteInfo
+                    marker={selectedGuestMarker}
+                    onShowRoute={handleShowGuestRoute}
+                    onClose={() => setShowGuestRouteInfo(false)}
+                />
+            )}
+
+            {auth?.user && <LogoutNavbar />}
 
             {/* ❌ Navbar hanya untuk yang belum login */}
             {!auth?.user && <NavbarTransparen />}
+
+            {/* 🆕 Tombol reset untuk guest */}
+            {!auth?.user && alternativeRoutes.length > 0 && (
+                <div className="absolute bottom-4 left-4 z-50">
+                    <button
+                        onClick={handleReset}
+                        className="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg shadow-lg flex items-center"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            className="h-5 w-5 mr-1"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                        >
+                            <path
+                                fillRule="evenodd"
+                                d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
+                                clipRule="evenodd"
+                            />
+                        </svg>
+                        Reset Rute
+                    </button>
+                </div>
+            )}
         </div>
     );
 }
