@@ -134,4 +134,4 @@ export const campusBuildings = [
   ];
   
   // UIN Campus Coordinates
-  export const UIN_COORDS = [-6.3109024, 106.75962103417];
+  export const UIN_COORDS = [-6.306469043314011, 106.7561852678639];

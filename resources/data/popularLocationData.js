@@ -1,5 +1,19 @@
 // Popular locations around the campus
 export const popularLocations = [
+    {name: "Student Center", position: [-6.306392490651153, 106.754946067864], },
+    {name: "Fakultas Sains dan Teknologi", position: [-6.306100298837985, 106.75372393902748]},
+    {name: "Fakultas Psikologi", position: [-6.309691355236905, 106.75897155622877]},
+    {name: "Fakultas Kedokteran dan Ilmu Kesehatan", position: [-6.311769393670368, 106.76005459880741]},
+    {name: "Fakultas Ilmu Sosial dan Ilmu Politik", position: [-6.309131291268278, 106.75925704088291]},
+    {name: "Fakultas Dirosat Islamiyah", position: [-6.305934062709272, 106.75642528135452]},
+    {name: "Gedung Rektorat", position: [-6.306534235056094, 106.75607619484514]},
+    {name: "Perpustakaan Utama", position: [-6.306100298837985, 106.75372393902748]},
+    {name: "Rumah sakit UIN Jakarta", position: [-6.307908289905879, 106.75665731052253]},
+    {name: "Auditorium Harun Nasution", position: [-6.306269246275675, 106.7556969967004]},
+    {name: "Fakultas Ekonomi dan Bisnis", position: [-6.307908289905879, 106.75665731052253]},
+    {name: "Fakultas Adab dan Humaniora", position: [-6.306269246275675, 106.7556969967004]},
+    {name: "Fakultas Ilmu Tarbiyah dan Keguruan", position: [-6.306392490651153, 106.754946067864]},
+    {name: "Fakultas Syariah dan Hukum", position: [-6.306534235056094, 106.75607619484514]},
     { name: "Stasiun MRT Bendungan Hilir", position: [-6.214786678119945, 106.81796072499894] },
     { name: "Stasiun Sudirman", position: [-6.202140578705205, 106.82377782499888] },
     { name: "Stasiun Pondok Ranji", position: [-6.2766831, 106.7446926] },
@@ -11,5 +25,7 @@ export const popularLocations = [
     {name: "Alun alun Pamulang", position: [-6.344324414835178, 106.73497631150808]},
     {name: "Taman Mini Indonesia Indah", position: [-6.301953281629545, 106.88989239616424]},
     {name: "Kebun Raya Bogor", position: [-6.59743860043447, 106.79962174840273]},
-    {name: "Puncak", position: [-6.705276150645485, 106.99419698267647]}
+    {name: "Puncak", position: [-6.705276150645485, 106.99419698267647]},
+    
+
   ];

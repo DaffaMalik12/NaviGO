@@ -2,7 +2,7 @@ import L from 'leaflet';
 import { buildingIcons } from '../js/Components/Icons/MarkerIcons';
 
 // Koordinat UIN (Diekspor langsung)
-export const UIN_COORDS = [-6.3109024, 106.75962103417];
+export const UIN_COORDS = [-6.306426387668503, 106.75623891204629];
 
 /**
  * Membuat routing control untuk peta
